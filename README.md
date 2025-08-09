@@ -1,160 +1,89 @@
-# StickyBoard — Persistent Post-it & Calendar Widget for Android
+# StickyBoard — Tablet-Focused Life Management Dashboard for Android
 
 ## 📌 Overview
 
-**StickyBoard** is an always-available, pen-friendly **home screen widget** that combines a responsive Post-it board with a powerful calendar view.
-It’s designed for **zero-friction note-taking** and **quick appointment management** — no app opening, no waiting — just unlock your device and write.
+**StickyBoard** is a pen-first, always-on tablet dashboard that unifies notes, tasks, and events into one intuitive interface. Designed to replace a paper agenda and scattered apps, it combines a Post-it style board, an integrated calendar, and intelligent task management — all accessible from a single full-page layout on your home screen.
 
-The widget fills an entire home screen page, adapting its layout based on the number of notes or calendar entries. All editing happens in an **instant overlay** that feels like it’s inside the widget.
+StickyBoard is more than a note-taking tool. It integrates with productivity services (Google Calendar, Microsoft Teams, Google Tasks, etc.), offers handwriting recognition, and organizes your personal and work life with a clean, customizable view.
 
 ---
 
 ## 🎯 Core Goals
 
-* **Full-page widget** that adapts dynamically:
+* **Full-page dashboard** optimized for landscape tablet use.
+* **Unified Post-it model**: Every item starts as a note, classified as Generic, Task, or Event.
+* **Separation of views**:
 
-  * 1 note → fills the entire space.
-  * Many notes → mini Post-its in a responsive grid.
-* **Two main modes**:
-
-  1. **Post-it Board** — freeform notes, sorted by most recent or pinned.
-  2. **Calendar** — each date as a clickable cell, with daily grids for events.
-* **Pen support**: Handwriting or text for each note.
-* **Instant access**: Overlay opens instantly with no visible app switch.
-* **Project & priority management**: Color coding, tags, filters.
-* **Reminders & notifications**: Local alarms + optional push to phone.
+  * **Note Board**: Generic notes only (no tasks/events).
+  * **Task List**: All tasks, sorted by due date.
+  * **Calendar**: Events and tasks with dates; optional work log view for dated notes.
+* **Categories/Tags** for organizing notes into projects or themes.
+* **Historical backdating** to log past work or events.
+* **Secure storage** with encryption and backup.
 
 ---
 
-## 🖼️ Widget Interaction Model
+## 🖼️ Layout Concept
 
-The widget supports multiple click zones with different actions:
-
-| Click Target                 | Action                                                |
-| ---------------------------- | ----------------------------------------------------- |
-| Single Post-it card          | Open that note in full-screen overlay for editing.    |
-| Board background/header      | Open scrollable Board List (all notes with filters).  |
-| Calendar day cell            | Open Day View (hour slots, add events, reminders).    |
-| **+** button on Board        | Create new note.                                      |
-| **+** button on Calendar     | Create new event for that day.                        |
-| Long-press (where supported) | Quick actions: pin/unpin, change color, move project. |
-
----
-
-## 🛠️ Features
-
-### Post-it Board
-
-* **Responsive grid layout** (Glance widget, adaptive columns).
-* **Mini previews** of handwritten/text notes.
-* Color-coded notes with tags & priorities.
-* Tap to expand, edit, and collapse back.
-
-### Calendar View
-
-* Month grid with day badges.
-* Hour-ordered events in Day View.
-* Multiple reminders per event.
-* Snooze/done actions from notifications.
-
-### Editing Overlay
-
-* Zero-chrome, transparent Activity (feels like widget editing).
-* Text editor + handwriting canvas (pressure-sensitive).
-* Autosave on close.
-* Color selector, pin toggle, tag picker.
-
-### Pen & Touch
-
-* Palm rejection during pen use.
-* Undo/redo for drawings.
-* Convert handwriting to text (future OCR integration).
-
-### Notifications & Reminders
-
-* Exact alarms (where supported).
-* Cross-device push sync via FCM (optional).
-
-### Organization Tools
-
-* Tag-based project organization.
-* Priority flags.
-* Filter chips in board/day lists.
-
----
-
-## 🏗️ Architecture
-
-### Packages
+**Dashboard (Landscape)**
 
 ```
-com.stickyboard
-│
-├── data
-│   ├── db
-│   │   ├── NoteEntity.kt
-│   │   ├── EventEntity.kt
-│   │   ├── AppDatabase.kt
-│   │   └── DaoInterfaces.kt
-│   └── model
-│       ├── Note.kt
-│       └── Event.kt
-│
-├── ui
-│   ├── widget
-│   │   ├── StickyBoardWidget.kt       # Glance-based widget
-│   │   └── CalendarWidget.kt          # Optional split layout
-│   ├── overlay
-│   │   ├── OverlayActivity.kt         # Zero-chrome transparent editor
-│   │   ├── BoardListScreen.kt
-│   │   ├── DayViewScreen.kt
-│   │   └── NoteEditorScreen.kt
-│   └── components
-│       ├── PostItCard.kt
-│       ├── CalendarDayCell.kt
-│       └── HandwritingCanvasView.kt
-│
-├── util
-│   ├── DeepLinks.kt
-│   ├── WidgetUtils.kt
-│   └── DateTimeUtils.kt
-│
-└── service
-    ├── ReminderScheduler.kt
-    └── PushSyncService.kt
++---------------------------------------------------------------+
+| Header: Date | Weather | Quick Add (+) | Filters              |
++-----------------------+---------------------------------------+
+| Calendar (month/week) | Note Board (Generic Notes only)       |
++-----------------------+---------------------------------------+
+| Task List (due/overdue tasks, sorted)                         |
++---------------------------------------------------------------+
 ```
+
+**Day View**
+
+* Left: Time slots with events.
+* Right: Tasks due that day + dated notes (logs).
 
 ---
 
-## 📦 Data Models
+## 🛠️ Key Features
 
-### Note
+* **Unified editor**: Choose note type (Generic, Task, Event) with contextual fields.
+* **Intelligent parsing**: Handwriting-to-text and natural language recognition for dates/times.
+* **Service integration**: Sync with Google Calendar, Google Tasks, Microsoft Teams tasks.
+* **Categories/tags**: Group notes by project or topic.
+* **Historical editing**: Add/edit notes for past dates.
+* **Quick capture**: Bubble overlay for notes from any app.
+* **Encrypted local storage** + optional cloud backup.
+
+---
+
+## 🤖 Intelligence Layer
+
+* **Type suggestion** based on handwriting or typed keywords.
+* **Auto-date recognition** ("tomorrow 3 PM" → sets due date).
+* **Suggested reminders** from freeform notes.
+* **Contextual linking**: Link related notes, tasks, and events.
+
+---
+
+## 📦 Data Model
 
 ```kotlin
+enum class NoteType { GENERIC, TASK, EVENT }
+
 data class Note(
-    val id: UUID = UUID.randomUUID(),
-    val title: String? = null,
-    val text: String? = null,
-    val drawingUri: Uri? = null,
-    val color: NoteColor = NoteColor.Yellow,
-    val tags: List<String> = emptyList(),
-    val priority: Int = 0,
-    val createdAt: Instant = Instant.now(),
-    val updatedAt: Instant = Instant.now(),
-    val pinned: Boolean = false
-)
-```
-
-### Event
-
-```kotlin
-data class Event(
-    val id: UUID = UUID.randomUUID(),
-    val localDate: LocalDate,
-    val time: LocalTime? = null,
-    val title: String,
-    val noteId: UUID? = null,
-    val reminders: List<Instant> = emptyList()
+    val id: UUID,
+    val type: NoteType,
+    val title: String?,
+    val text: String?,
+    val drawingUri: Uri?,
+    val date: LocalDate?,
+    val time: LocalTime?,
+    val durationHours: Float?,
+    val tags: List<String>,
+    val priority: Int?,
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val completed: Boolean
 )
 ```
 
@@ -162,85 +91,49 @@ data class Event(
 
 ## 📲 Development Plan
 
-### Phase 1 — Post-it Board MVP
+**Phase 1 — Core Board & Tasks**
 
-* Full-page responsive board widget.
-* Overlay editor (text + handwriting).
-* Board list overlay with search/filter.
-* Local storage via Room.
-* Basic color/tags/pin support.
+* Unified data model.
+* Responsive Note Board (Generic only).
+* Task List view.
+* Unified editor with type selection.
+* Encrypted Room database.
 
-### Phase 2 — Calendar Integration
+**Phase 2 — Calendar & Day View**
 
-* Month grid widget panel.
-* Day View overlay with reminders.
-* Notifications with snooze/done.
+* Month/week calendar view.
+* Day view with events, tasks, and optional logs.
+* Backdating support.
 
-### Phase 3 — Enhancements
+**Phase 3 — Intelligence Layer**
 
-* Cross-device push sync.
-* OCR for handwriting search.
-* Customizable widget themes.
+* Handwriting recognition.
+* Natural language date parsing.
+* Auto-type suggestion.
+
+**Phase 4 — Integrations & Sync**
+
+* Google Calendar, Google Tasks, Microsoft Teams.
+* Secure cloud backup.
+
+**Phase 5 — Enhancements**
+
+* Customizable themes.
+* Advanced search & filters.
 * Data export/import.
 
 ---
 
 ## ⚙️ Technical Notes
 
-* **Widget framework**: Jetpack Glance (Compose for widgets).
-* **UI**: Jetpack Compose + AndroidView interop for drawing.
-* **Storage**: Room (encrypted).
-* **Reminders**: AlarmManager (exact) + WorkManager fallback.
-* **Push sync**: Firebase Cloud Messaging (optional).
-* **Minimum SDK**: 26 (Android 8.0).
-* **Target SDK**: Latest stable.
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-* Android Studio Giraffe+ with Compose support.
-* Kotlin 1.9+.
-* Gradle 8+.
-
-### Clone & Build
-
-```bash
-git clone https://github.com/YOUR_USERNAME/stickyboard.git
-cd stickyboard
-./gradlew assembleDebug
-```
-
-### Run
-
-* Deploy to a tablet/emulator.
-* Add the **StickyBoard** widget to a home screen page.
-* Resize to full page.
-* Tap + to create your first note.
+* **UI**: Jetpack Compose (tablet-optimized), AndroidView interop for pen input.
+* **Storage**: Room (SQLCipher for encryption).
+* **Reminders**: AlarmManager + WorkManager fallback.
+* **Integrations**: REST/Graph APIs for Google/Microsoft.
+* **Minimum SDK**: 26.
 
 ---
 
 ## 📜 License
 
 All rights reserved — © Alexandre Emond, 2025. Unauthorized copying or redistribution of this project’s source code, in whole or in part, is strictly prohibited without express written permission.
-
----
-
-## 🤝 Contributing
-
-Pull requests are welcome!
-For major changes, please open an issue first to discuss what you’d like to change.
-
----
-
-## 🗺️ Roadmap
-
-* [ ] MVP Post-it board.
-* [ ] Handwriting + pen support.
-* [ ] Calendar integration.
-* [ ] Reminder notifications.
-* [ ] Push sync to phone.
-* [ ] OCR handwriting search.
-* [ ] Custom widget themes.
