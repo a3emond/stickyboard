@@ -1,139 +1,233 @@
-# StickyBoard — Tablet-Focused Life Management Dashboard for Android
+# StickyBoard – Project Overview
 
-## 📌 Overview
+StickyBoard is a next-generation, cross-platform visual organization and note management system designed for creativity, knowledge mapping, and collaborative thinking. It combines local-first reliability, intelligent automation, and multi-device synchronization to create a seamless workspace experience.
 
-**StickyBoard** is a pen-first, always-on tablet dashboard that unifies notes, tasks, and events into one intuitive interface. Designed to replace a paper agenda and scattered apps, it combines a Post-it style board, an integrated calendar, and intelligent task management — all accessible from a single full-page layout on your home screen.
+This repository acts as the **main documentation and coordination hub** for the StickyBoard ecosystem, linking together multiple platform-specific submodules:
 
-StickyBoard is more than a note-taking tool. It integrates with productivity services (Google Calendar, Microsoft Teams, Google Tasks, etc.), offers handwriting recognition, and organizes your personal and work life with a clean, customizable view.
-
----
-
-## 🎯 Core Goals
-
-* **Full-page dashboard** optimized for landscape tablet use.
-* **Unified Post-it model**: Every item starts as a note, classified as Generic, Task, or Event.
-* **Separation of views**:
-
-  * **Note Board**: Generic notes only (no tasks/events).
-  * **Task List**: All tasks, sorted by due date.
-  * **Calendar**: Events and tasks with dates; optional work log view for dated notes.
-* **Categories/Tags** for organizing notes into projects or themes.
-* **Historical backdating** to log past work or events.
-* **Secure storage** with encryption and backup.
+| Repository                                                            | Platform | Description                                     |
+| --------------------------------------------------------------------- | -------- | ----------------------------------------------- |
+| [stickyboard-api](https://github.com/a3emond/stickyboard-api)         | Backend  | ASP.NET Core REST API + PostgreSQL (Dockerized) |
+| [stickyboard-ios](https://github.com/a3emond/stickyboard-ios)         | iOS      | Native SwiftUI app for iPhone and iPad          |
+| [stickyboard-android](https://github.com/a3emond/stickyboard-android) | Android  | Native Kotlin/Jetpack Compose app               |
+| [stickyboard-macos](https://github.com/a3emond/stickyboard-macos)     | macOS    | Desktop version built in SwiftUI                |
+| [stickyboard-windows](https://github.com/a3emond/stickyboard-windows) | Windows  | Desktop version built in .NET MAUI/WPF          |
 
 ---
 
-## 🖼️ Layout Concept
+## 1. Overall Architecture Model
 
-**Dashboard (Landscape)**
+### 1.1 Core Principles
+
+* **Local-first**: every action persists locally, syncs opportunistically.
+* **Resource-oriented**: all entities addressable as independent resources (`/boards/:id`, `/cards/:id`).
+* **Composable features**: cards, sections, and clusters behave the same across devices.
+* **Reactive UI model**: any state change (local or remote) propagates through a single data stream.
+* **Extensible data contracts**: new fields and types can be added without schema breaks.
+
+### 1.2 Major Layers
+
+1. **Storage Layer** – local database + remote persistence adapters.
+2. **Sync & Versioning Layer** – CRDT/operation log, delta-based sync, conflict merge.
+3. **Domain Layer** – core models: Board, Section, Card, Cluster, User, etc.
+4. **Rule & Intelligence Layer** – parsers, rule engine, search/index, handwriting recognizer.
+5. **Collaboration Layer** – permissions, live presence, comments, activities.
+6. **Presentation Layer** – board canvas, list views, filters/lenses, search UI.
+7. **API Gateway Layer** – REST endpoints and real-time streams (for later multi-device sync).
+
+---
+
+## 2. Data Model Precision
+
+### 2.1 Core Entities (normalized)
+
+| Entity           | Core Fields                                                                                          | Relationships                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **User**         | id, name, email, avatarUri, prefs                                                                    | owns Boards; participates via Collaborator                                |
+| **Board**        | id, title, visibility, createdBy, tabs[], rules[], theme                                             | contains Sections, Cards, Collaborators                                   |
+| **Section**      | id, title, position, layoutMeta                                                                      | belongs to Board; holds Cards                                             |
+| **Tab**          | id, title, type (“plan”, “archive”), layoutConfig                                                    | belongs to Board/Section                                                  |
+| **Card**         | id, type, title, content, inkData, date, tags[], assignees[], status, priority, createdAt, updatedAt | belongs to Section or Tab; linked via LinkGraph; referenced by Activities |
+| **Cluster**      | id, ruleDefinition, type (auto/manual), members[], visualMeta                                        | references Cards; belongs to Board                                        |
+| **Collaborator** | userId, boardId, role                                                                                | —                                                                         |
+| **Activity**     | id, boardId, cardId?, type (edit/comment/react), actor, payload, timestamp                           | —                                                                         |
+| **Rule**         | id, scope (board/section/global), trigger, condition, action                                         | executed by local Rule Engine                                             |
+| **Link**         | id, fromCard, toCard, type (reference, duplicate, depends)                                           | drives knowledge graph                                                    |
+
+---
+
+## 3. Data Flow and State Lifecycle
+
+1. User action (create/edit/move) → generates a domain operation (`AddCard`, `MoveCard`, `EditField`, etc.).
+2. Operation logged locally (append-only).
+3. Rule Engine runs pre-commit checks (auto-tag, link inference).  \
+4. Operation applied to local DB (Room/SQLite/IndexedDB).
+5. Background Sync Service batches logs → remote server.
+6. Server merges ops, broadcasts deltas back to subscribers.
+7. UI reacts through observable data streams.
+
+Undo/redo: revert via inverse operations from the local log.
+
+---
+
+## 4. Local Intelligence Subsystems
+
+| Subsystem              | Input                         | Output                                      | Notes                               |
+| ---------------------- | ----------------------------- | ------------------------------------------- | ----------------------------------- |
+| Ink Processor          | pen strokes                   | raster preview + vector data                | stores compressed path data         |
+| Handwriting Recognizer | inkData                       | recognizedText                              | local ML model or OS API            |
+| Parser                 | raw text                      | structured metadata (dates, tags, mentions) | rule-based regex + tokenization     |
+| Rule Engine            | card state changes            | new tags, reminders, links, nudges          | event-driven, declarative DSL       |
+| Index Builder          | card text, metadata           | FTS index + inverted word map               | incremental background job          |
+| Similarity Engine      | text vectors                  | related-cards suggestions                   | TF-IDF or local embeddings          |
+| Cluster Manager        | similarity index + user rules | cluster membership sets                     | dynamic; persists cluster snapshots |
+
+Each subsystem communicates through an Event Bus: `onCardUpdated`, `onCardCreated`, `onIndexRebuilt`, `onRuleTriggered`, etc.
+
+---
+
+## 5. Rule Engine Model
+
+**Rule Definition:**
 
 ```
-+---------------------------------------------------------------+
-| Header: Date | Weather | Quick Add (+) | Filters              |
-+-----------------------+---------------------------------------+
-| Calendar (month/week) | Note Board (Generic Notes only)       |
-+-----------------------+---------------------------------------+
-| Task List (due/overdue tasks, sorted)                         |
-+---------------------------------------------------------------+
+{
+  trigger: "onCardUpdate",
+  condition: { field: "content", contains: "meeting" },
+  actions: [
+    { type: "addTag", value: "work" },
+    { type: "suggestConvert", targetType: "event" }
+  ],
+  scope: "board:123"
+}
 ```
 
-**Day View**
+Execution model:
 
-* Left: Time slots with events.
-* Right: Tasks due that day + dated notes (logs).
+1. Observe changes.
+2. Evaluate condition.
+3. Queue or apply actions (depending on “auto” vs “suggest”).
 
----
-
-## 🛠️ Key Features
-
-* **Unified editor**: Choose note type (Generic, Task, Event) with contextual fields.
-* **Intelligent parsing**: Handwriting-to-text and natural language recognition for dates/times.
-* **Service integration**: Sync with Google Calendar, Google Tasks, Microsoft Teams tasks.
-* **Categories/tags**: Group notes by project or topic.
-* **Historical editing**: Add/edit notes for past dates.
-* **Quick capture**: Bubble overlay for notes from any app.
-* **Encrypted local storage** + optional cloud backup.
+User can enable/disable per rule; engine remains deterministic and offline.
 
 ---
 
-## 🤖 Intelligence Layer
+## 6. Search & Indexing Architecture
 
-* **Type suggestion** based on handwriting or typed keywords.
-* **Auto-date recognition** ("tomorrow 3 PM" → sets due date).
-* **Suggested reminders** from freeform notes.
-* **Contextual linking**: Link related notes, tasks, and events.
+### 6.1 Index Types
 
----
+* FTS index: token → cardId list.
+* Metadata index: tag/date/type/assignee → cardId.
+* Vector index (optional): TF-IDF or embedding array → cosine similarity.
 
-## 📦 Data Model
+### 6.2 Search Flow
 
-```kotlin
-enum class NoteType { GENERIC, TASK, EVENT }
+1. Parse query → filter tokens, metadata, operators.
+2. Merge hits from all indexes.
+3. Rank by recency, similarity, and user context (board, section).
+4. Present grouped results (by board/section/type).
 
-data class Note(
-    val id: UUID,
-    val type: NoteType,
-    val title: String?,
-    val text: String?,
-    val drawingUri: Uri?,
-    val date: LocalDate?,
-    val time: LocalTime?,
-    val durationHours: Float?,
-    val tags: List<String>,
-    val priority: Int?,
-    val createdAt: Instant,
-    val updatedAt: Instant,
-    val completed: Boolean
-)
-```
+### 6.3 Incremental updates
+
+* On every card change, update only affected tokens and metadata.
+* Low-priority background thread handles re-indexing.
 
 ---
 
-## 📲 Development Plan
+## 7. Collaboration Model (Offline-Tolerant)
 
-**Phase 1 — Core Board & Tasks**
+### 7.1 Roles
 
-* Unified data model.
-* Responsive Note Board (Generic only).
-* Task List view.
-* Unified editor with type selection.
-* Encrypted Room database.
+* Owner → full control.
+* Editor → CRUD within scope.
+* Commenter → read + comment.
+* Viewer → read only.
 
-**Phase 2 — Calendar & Day View**
+### 7.2 Conflict Resolution
 
-* Month/week calendar view.
-* Day view with events, tasks, and optional logs.
-* Backdating support.
+* Content fields → text diff + merge preview.
+* Position changes → CRDT sequence positions.
+* Deletions → tombstones with version stamps.
 
-**Phase 3 — Intelligence Layer**
+### 7.3 Presence Channels
 
-* Handwriting recognition.
-* Natural language date parsing.
-* Auto-type suggestion.
-
-**Phase 4 — Integrations & Sync**
-
-* Google Calendar, Google Tasks, Microsoft Teams.
-* Secure cloud backup.
-
-**Phase 5 — Enhancements**
-
-* Customizable themes.
-* Advanced search & filters.
-* Data export/import.
+* Lightweight real-time events: cursor positions, selections, comments.
+* Optional; falls back to polling or no-presence when offline.
 
 ---
 
-## ⚙️ Technical Notes
+## 8. Security & Privacy Layer
 
-* **UI**: Jetpack Compose (tablet-optimized), AndroidView interop for pen input.
-* **Storage**: Room (SQLCipher for encryption).
-* **Reminders**: AlarmManager + WorkManager fallback.
-* **Integrations**: REST/Graph APIs for Google/Microsoft.
-* **Minimum SDK**: 26.
+* Local encryption: per-board key derived from user keychain.
+* Selective end-to-end: cards/sections flagged as private encrypt at client before sync.
+* Permissions enforcement: at domain layer before any API call.
+* Audit trail: immutable append log of activities, exportable as JSON/CSV.
 
 ---
 
-## 📜 License
+## 9. Frontend Functional Architecture
+
+### 9.1 Components
+
+* Board Canvas: zoomable, pannable layout; houses sections and cards.
+* Sidebar Panels: Filters, Search, Activity, Cluster view.
+* Card Editor: inline modal; supports text + ink + attachments.
+* Timeline View: alternative layout focusing on dated cards.
+* Quick Capture Overlay: floating bubble accessible globally.
+
+### 9.2 Interaction Model
+
+* Pen/touch gesture → create note.
+* Drag → move card/section.
+* Tap/hold → open context menu (convert type, link, duplicate).
+* Keyboard shortcuts → filter, create, switch view.
+* Search bar → universal command palette (`/create task`, `#tag`, `@assign`).
+
+---
+
+## 10. Sync & Version Semantics
+
+* Operation log: `[opId, entityId, type, payload, timestamp, userId]`.
+* Version vectors: per-entity version for merging.
+* Delta endpoint: `GET /sync?since=timestamp` returns operations list.
+* Merge rules: LWW per field; CRDT per position; additive for comments/links.
+
+Local client keeps `lastSync` cursor per board; retry policy exponential with jitter.
+
+---
+
+## 11. Extensibility Points
+
+* Plugin hooks: allow local add-ons (e.g., custom rule packs or renderers).
+* Custom card types: define schema extensions and rendering functions.
+* Integration hooks: generic “sync adapters” (Calendar, Email, etc.) that operate through uniform interface.
+
+All run in sandboxed context so they can be added without refactoring core.
+
+---
+
+## 12. Product & UX Roadmap
+
+| Phase                      | Focus                                                        | Key Deliverables        |
+| -------------------------- | ------------------------------------------------------------ | ----------------------- |
+| 1. Personal MVP            | Core CRUD, board canvas, offline persistence, keyword search | stable base             |
+| 2. Local Intelligence      | handwriting → text, rule engine, clustering, related view    | smart offline assistant |
+| 3. Collaboration Alpha     | sharing, comments, live cursors, basic permission checks     | team use                |
+| 4. Search & Rule Expansion | FTS + vector index, saved lenses, automation UI              | power-user stage        |
+| 5. Multi-Board Projects    | board clusters, rollups, project summaries                   | scaling stage           |
+| 6. Ecosystem               | plugin system, cloud AI extensions, enterprise controls      | maturity                |
+
+---
+
+## 13. Governance & Data Portability
+
+* Data format: open JSON spec with version field.
+* Export/Import: single-file `.stickyboard` archive (JSON + assets).
+* Versioning: schema versioning via migration descriptors.
+* Interoperability: optional adapter to/from Markdown, CSV, or iCalendar.
+
+
+---
+
+## License
 
 All rights reserved — © Alexandre Emond, 2025. Unauthorized copying or redistribution of this project’s source code, in whole or in part, is strictly prohibited without express written permission.
