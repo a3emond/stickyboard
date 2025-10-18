@@ -1,0 +1,12 @@
+[submodule "stickyboard-ios"]
+	path = stickyboard-ios
+	url = https://github.com/a3emond/stickyboard-ios.git
+[submodule "stickyboard-android"]
+	path = stickyboard-android
+	url = https://github.com/a3emond/stickyboard-android.git
+[submodule "stickyboard-macos"]
+	path = stickyboard-macos
+	url = https://github.com/a3emond/stickyboard-macos.git
+[submodule "stickyboard-windows"]
+	path = stickyboard-windows
+	url = https://github.com/a3emond/stickyboard-windows.git
