@@ -8,9 +8,9 @@ This repository acts as the **main documentation and coordination hub** for the 
 | --------------------------------------------------------------------- | -------- | ----------------------------------------------- |
 | [stickyboard-api](https://github.com/a3emond/stickyboard-api)         | Backend  | ASP.NET Core REST API + PostgreSQL (Dockerized) |
 | [stickyboard-ios](https://github.com/a3emond/stickyboard-ios)         | iOS      | Native SwiftUI app for iPhone and iPad          |
-| [stickyboard-android](https://github.com/a3emond/stickyboard-android) | Android  | Native Kotlin/Jetpack Compose app               |
+| [stickyboard-android](https://github.com/a3emond/stickyboard-android) | Android  | Native Java                                     |
 | [stickyboard-macos](https://github.com/a3emond/stickyboard-macos)     | macOS    | Desktop version built in SwiftUI                |
-| [stickyboard-windows](https://github.com/a3emond/stickyboard-windows) | Windows  | Desktop version built in .NET MAUI/WPF          |
+| [stickyboard-windows](https://github.com/a3emond/stickyboard-windows) | Windows  | Desktop version                                 |
 
 ---
 
