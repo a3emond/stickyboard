@@ -10,3 +10,6 @@
 [submodule "stickyboard-windows"]
 	path = stickyboard-windows
 	url = https://github.com/a3emond/stickyboard-windows.git
+[submodule "stickyboard-api"]
+	path = stickyboard-api
+	url = https://github.com/a3emond/stickyboard-api.git
