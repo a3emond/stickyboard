@@ -89,16 +89,37 @@ A chronological record of tasks, milestones, and key decisions for the StickyBoa
 
 ------
 
+### October 19, 2025 (Sunday)
+
+**Milestone:** Backend API Initialization and Container Integration
+
+- Scaffolded initial .NET 9 Web API project inside `/api`.
+- Implemented a lightweight `Program.cs` startup with async PostgreSQL connection test.
+- Replaced the default WeatherForecast template with a minimal clean setup.
+- Added environment-variable-based connection logic (`DATABASE_URL`, `POSTGRES_*`).
+- Unified `.env` naming across Docker and IDE for seamless dev/prod parity.
+- Created initial `launchSettings.json` to mirror .env variables (for Rider/VS/VS Code).
+- Built and validated **Dockerfile** for the API container:
+  - Multi-stage build (SDK → Runtime).
+  - Publishes app to `/app/publish` and runs via `dotnet StickyBoard.Api.dll`.
+- Fixed compose mount collision by removing `./api:/app` bind mount.
+- Verified successful startup of `stickyboard_api` and `stickyboard_db` containers.
+- Disabled unused `worker` service temporarily to stabilize stack.
+
+**Result:**
+ Backend environment confirmed operational. Containers build and run cleanly; PostgreSQL connectivity confirmed. Ready for first endpoint and schema work.
+
+------
+
 ## Upcoming Tasks
 
-| Target Date         | Task                      | Description                                                  |
-| ------------------- | ------------------------- | ------------------------------------------------------------ |
-| October 19–20, 2025 | Initialize .NET 9 Web API | Scaffold the StickyBoard backend with a health endpoint and PostgreSQL link. |
-| October 21, 2025    | Database integration      | Configure Entity Framework Core, add initial migrations, and seed baseline data. |
-| October 22–23, 2025 | Authentication system     | Implement JWT-based authentication (users table, register/login endpoints). |
-| October 24–26, 2025 | Core API features         | Develop main modules: boards, notes, clusters, notifications, and sync. |
-| Following week      | Frontend integration      | Begin connecting mobile/desktop clients to the API endpoints. |
-| Later phase         | Automation refinement     | Add umbrella-side daily sync workflow and tag propagation system. |
+| Target Date             | Task                  | Description                                                  |
+| ----------------------- | --------------------- | ------------------------------------------------------------ |
+| **October 20–21, 2025** | Database integration  | Implement connection helper and seed logic using async Npgsql DataReader pattern. |
+| **October 22–23, 2025** | Authentication system | Implement JWT auth (users table, register/login endpoints).  |
+| **October 24–26, 2025** | Core API features     | Develop main modules: boards, notes, clusters, notifications, and sync. |
+| **Following week**      | Frontend integration  | Begin connecting mobile/desktop clients to API endpoints.    |
+| **Later phase**         | Automation refinement | Add umbrella-side daily sync workflow and tag propagation system. |
 
 ------
 
@@ -106,7 +127,7 @@ A chronological record of tasks, milestones, and key decisions for the StickyBoa
 
 - **Current Environment:** Ubuntu + Apache 2 + Docker + PostgreSQL 17 + .NET 9
 - **Automation:** Full submodule auto-sync via GitHub Actions
-- **Deployment URL:** [https://stickyboard.aedev.pro](https://stickyboard.aedev.pro/)
+- **Deployment URL:** https://stickyboard.aedev.pro
 - **Security:** SSL (Let’s Encrypt) + Apache reverse proxy verified
 - **Repositories:** All five platform submodules linked under umbrella `stickyboard`
 - **Branching Policy:** `main` only (feature branches to be introduced post-API setup)
@@ -115,14 +136,14 @@ A chronological record of tasks, milestones, and key decisions for the StickyBoa
 
 ## Next Steps
 
-1. Scaffold backend API (`dotnet new webapi`) inside `/api/`.
-2. Implement `/api/health` test endpoint and verify HTTPS response.
-3. Create and test API Dockerfile; integrate into unified stack.
-4. Begin database schema and authentication model design.
-5. Add daily umbrella sync workflow and optional tag propagation CI.
+1. Finalize database connection helper and logging integration.
+2. Implement `/api/health` test endpoint returning PostgreSQL status.
+3. Begin schema and authentication model design.
+4. Validate Dockerized dev workflow end-to-end (API + DB).
+5. Commit and tag “backend-bootstrap-v1” in the umbrella repository.
 
 ------
 
 **Maintained by:** Alexandre Emond
  **Role:** StickyBoard Project Lead
- **Last Updated:** **October 18, 2025**
+ **Last Updated:** **October 19, 2025**
