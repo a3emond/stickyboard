@@ -45,6 +45,23 @@ This document defines the **data model**, **database schemas** (PostgreSQL serve
 
 > Types used: `uuid`, `timestamptz`, `jsonb`, `text`, `integer`, `boolean`. Arrays used sparingly; prefer join tables for portability.
 
+### 2.0 auth_users (API use only) 
+
+```sql
+create table auth_users (
+    user_id uuid primary key references users(id) on delete cascade,
+    password_hash text not null,
+    last_login timestamptz default now(),
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+);
+
+create trigger trg_auth_users_updated_at
+before update on auth_users
+for each row
+execute procedure set_updated_at();
+```
+
 ### 2.1 Users
 
 ```sql
