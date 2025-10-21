@@ -1,10 +1,6 @@
-# StickyBoard — REST API Specification (Full Definition)
+# StickyBoard — REST API Specification (v2, 2025-10-20)
 
-*Last updated: 2025‑10‑17*
-
-This document defines the complete **StickyBoard REST API** for server communication. It covers all endpoints, their HTTP methods, URL patterns, headers, request/response bodies, and standardized error codes.
-
-All endpoints are prefixed by:
+All endpoints are prefixed with:
 
 ```
 baseURL/api/
@@ -16,24 +12,24 @@ baseURL/api/
 
 ### 0.1 Authentication
 
-All endpoints require an `Authorization` header:
+All requests (except `/auth/*`) require:
 
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
 
-Tokens identify the authenticated user. Expired or missing tokens result in `401 Unauthorized`.
+Invalid or expired tokens result in `401 Unauthorized`.
 
-### 0.2 Content Type
+### 0.2 Headers
 
-Requests and responses use JSON:
+| Header         | Purpose                         |
+| -------------- | ------------------------------- |
+| `Content-Type` | `application/json`              |
+| `Accept`       | `application/json`              |
+| `Device-Id`    | Required for sync operations    |
+| `X-Version`    | Optional optimistic concurrency |
 
-```
-Content-Type: application/json
-Accept: application/json
-```
-
-### 0.3 Standard Response Envelope
+### 0.3 Response Envelope
 
 ```json
 {
@@ -43,30 +39,26 @@ Accept: application/json
 }
 ```
 
-Or on failure:
+Or on error:
 
 ```json
 {
   "success": false,
-  "error": {
-    "code": "ERR_NOT_FOUND",
-    "message": "Board not found."
-  }
+  "error": { "code": "ERR_NOT_FOUND", "message": "Board not found." }
 }
 ```
 
-### 0.4 Common Error Codes
+### 0.4 Standard Errors
 
-| HTTP | Code             | Message                                  |
-| ---- | ---------------- | ---------------------------------------- |
-| 400  | ERR_BAD_REQUEST  | Invalid request body or parameters.      |
-| 401  | ERR_UNAUTHORIZED | Missing or invalid authentication token. |
-| 403  | ERR_FORBIDDEN    | User lacks permission for the resource.  |
-| 404  | ERR_NOT_FOUND    | Resource not found.                      |
-| 409  | ERR_CONFLICT     | Version or state conflict detected.      |
-| 422  | ERR_VALIDATION   | Validation error on input fields.        |
-| 429  | ERR_RATE_LIMIT   | Too many requests.                       |
-| 500  | ERR_INTERNAL     | Unexpected server error.                 |
+| HTTP | Code             | Meaning                    |
+| ---- | ---------------- | -------------------------- |
+| 400  | ERR_BAD_REQUEST  | Invalid JSON or parameters |
+| 401  | ERR_UNAUTHORIZED | Invalid/missing token      |
+| 403  | ERR_FORBIDDEN    | Insufficient permissions   |
+| 404  | ERR_NOT_FOUND    | Entity missing             |
+| 409  | ERR_CONFLICT     | Version mismatch           |
+| 422  | ERR_VALIDATION   | Field validation failed    |
+| 500  | ERR_INTERNAL     | Unexpected server error    |
 
 ------
 
@@ -74,40 +66,37 @@ Or on failure:
 
 ### POST `/api/auth/login`
 
-**Body:**
+Authenticate and receive a JWT.
 
 ```json
-{ "email": "user@example.com", "password": "pass1234" }
+{ "email": "user@example.com", "password": "secret" }
 ```
 
-**Response:**
-
-```json
-{ "token": "<JWT_TOKEN>", "user": {"id":"uuid", "email":"user@example.com"} }
-```
-
-**Errors:**
-
-- 401 Invalid credentials
+**Response**: `{ "token": "<jwt>", "user": {...} }`
 
 ### POST `/api/auth/register`
 
-**Body:**
+Create a new user.
 
 ```json
-{ "email": "user@example.com", "password": "pass1234", "displayName": "Alex" }
+{ "email": "user@example.com", "password": "secret", "displayName": "Alex" }
 ```
 
-**Response:** `201 Created` → same as login.
+**Response:** `201 Created`
 
 ### POST `/api/auth/refresh`
 
-**Body:** `{ "refreshToken": "<token>" }`
- **Response:** `{ "token": "<new JWT>" }`
+Refresh token.
+
+```json
+{ "refreshToken": "<token>" }
+```
+
+**Response:** `{ "token": "<new_jwt>" }`
 
 ### POST `/api/auth/logout`
 
-Revokes token. No body.
+Invalidate the current token.
  **Response:** `204 No Content`
 
 ------
@@ -116,26 +105,29 @@ Revokes token. No body.
 
 ### GET `/api/users/me`
 
-Returns the authenticated user profile.
- **Response:**
-
-```json
-{ "id": "uuid", "email": "...", "displayName": "...", "prefs": { ... } }
-```
+Retrieve the authenticated user's profile.
 
 ### PATCH `/api/users/me`
 
-**Body:** `{ "displayName": "New Name", "prefs": { ... } }`
- **Response:** updated user.
+Update display name or preferences.
+
+```json
+{ "displayName": "New Name", "prefs": { ... } }
+```
+
+**Response:** updated user object.
 
 ### GET `/api/users/:id`
 
-Admin‑only access.
- **Errors:** 403 if non‑admin.
+Admin-only access to view a user.
+
+### PUT `/api/users/:id`
+
+Admin-only update of user (role, prefs).
 
 ### DELETE `/api/users/:id`
 
-Admin‑only user removal.
+Admin-only deletion of a user.
 
 ------
 
@@ -143,53 +135,47 @@ Admin‑only user removal.
 
 ### GET `/api/boards`
 
-List all boards for the authenticated user.
- **Query:** `?visibility=shared|private`
- **Response:** Array of board summaries.
+List all boards visible to the user.
 
 ### POST `/api/boards`
 
 Create a new board.
- **Body:**
 
 ```json
-{ "title": "Project X", "visibility": "private", "theme": {"color":"blue"} }
+{ "title": "Project X", "visibility": "private", "theme": {"color": "blue"} }
 ```
 
-**Response:** `201 Created` → full board object.
+**Response:** `201 Created`
 
 ### GET `/api/boards/:id`
 
-Retrieve board and contained sections/tabs.
+Retrieve a specific board and nested sections/tabs.
 
 ### PATCH `/api/boards/:id`
 
 Update board metadata.
- **Body:** `{ "title": "Updated Title", "theme": {...} }`
+
+```json
+{ "title": "Updated Title", "theme": {...} }
+```
+
+### PUT `/api/boards/:id`
+
+Full replace of board resource.
 
 ### DELETE `/api/boards/:id`
 
 Delete a board and its contents.
  **Response:** `204 No Content`
 
-### GET `/api/boards/:id/collaborators`
+### Collaborator Management
 
-List collaborators with roles.
+- **GET** `/api/boards/:id/collaborators`
+- **POST** `/api/boards/:id/collaborators`
+- **PATCH** `/api/boards/:id/collaborators/:userId`
+- **DELETE** `/api/boards/:id/collaborators/:userId`
 
-### POST `/api/boards/:id/collaborators`
-
-Add collaborator.
- **Body:** `{ "userId": "uuid", "role": "editor" }`
-
-### PATCH `/api/boards/:id/collaborators/:userId`
-
-Change collaborator role.
-
-### DELETE `/api/boards/:id/collaborators/:userId`
-
-Remove collaborator.
-
-**Error codes:** 403 if non‑owner.
+All map to `permissions` table operations.
 
 ------
 
@@ -197,22 +183,27 @@ Remove collaborator.
 
 ### GET `/api/boards/:boardId/sections`
 
-List sections within a board.
+List all sections in a board.
 
 ### POST `/api/boards/:boardId/sections`
 
-Create section.
- **Body:** `{ "title": "Backlog", "position": 1 }`
+Create a section.
+
+```json
+{ "title": "Backlog", "position": 1 }
+```
 
 ### PATCH `/api/sections/:id`
 
-Update section title, position, or layout.
+Partial update of title, position, or layout.
+
+### PUT `/api/sections/:id`
+
+Full section replace.
 
 ### DELETE `/api/sections/:id`
 
-Removes section and its cards.
-
-**Errors:** 404 if not found, 403 if no edit permission.
+Remove a section and its cards.
 
 ------
 
@@ -220,20 +211,27 @@ Removes section and its cards.
 
 ### GET `/api/boards/:boardId/tabs`
 
-List all tabs for a board.
+List all tabs in the board.
 
 ### POST `/api/boards/:boardId/tabs`
 
 Create new tab.
- **Body:** `{ "title": "Archive", "scope": "board" }`
+
+```json
+{ "title": "Archive", "scope": "board" }
+```
 
 ### PATCH `/api/tabs/:id`
 
-Update tab title or layout config.
+Update tab title or layout.
+
+### PUT `/api/tabs/:id`
+
+Replace tab definition.
 
 ### DELETE `/api/tabs/:id`
 
-Remove tab.
+Remove a tab.
 
 ------
 
@@ -241,48 +239,39 @@ Remove tab.
 
 ### GET `/api/boards/:boardId/cards`
 
-List cards within board (supports filters: `?section=uuid&type=task&status=open`).
+List cards (filterable by `section`, `status`, `type`).
 
 ### POST `/api/boards/:boardId/cards`
 
-Create card.
- **Body:** minimal required fields per schema.
+Create new card.
+
+```json
+{ "title": "Fix bug", "type": "task", "sectionId": "..." }
+```
 
 ### GET `/api/cards/:id`
 
-Fetch a single card.
+Fetch one card.
 
 ### PATCH `/api/cards/:id`
 
-Partial update.
- **Body:** any modifiable field (e.g. `title`, `status`, `content`).
+Partial update (title, content, status).
+
+### PUT `/api/cards/:id`
+
+Replace card fully.
 
 ### DELETE `/api/cards/:id`
 
-Delete card.
+Remove card.
 
 ### POST `/api/cards/:id/move`
 
-Move card to another section/tab.
- **Body:** `{ "sectionId": "uuid", "position": 3 }`
+Move a card to another section/tab.
 
-### POST `/api/cards/:id/links`
-
-Create link to another card.
- **Body:** `{ "toCardId": "uuid", "relType": "depends_on" }`
-
-### DELETE `/api/links/:id`
-
-Remove link.
-
-### POST `/api/cards/:id/comments`
-
-Add comment.
- **Body:** `{ "text": "Great idea!" }`
-
-### GET `/api/cards/:id/comments`
-
-List comments.
+```json
+{ "sectionId": "uuid", "position": 3 }
+```
 
 ------
 
@@ -290,21 +279,19 @@ List comments.
 
 ### POST `/api/cards/:id/tags`
 
-Add tag(s).
- **Body:** `{ "tags": ["urgent","work"] }`
+Add or create tags.
 
 ### DELETE `/api/cards/:id/tags/:tag`
 
-Remove tag.
+Remove a tag from a card.
 
 ### POST `/api/cards/:id/assignees`
 
-Add assignee(s).
- **Body:** `{ "assignees": ["user-123"] }`
+Assign one or multiple users.
 
 ### DELETE `/api/cards/:id/assignees/:userId`
 
-Remove assignee.
+Unassign user.
 
 ------
 
@@ -312,20 +299,23 @@ Remove assignee.
 
 ### GET `/api/boards/:boardId/rules`
 
-List automation rules.
+List rules.
 
 ### POST `/api/boards/:boardId/rules`
 
-Create rule.
- **Body:** rule JSON definition.
+Create rule definition.
 
 ### PATCH `/api/rules/:id`
 
-Modify rule.
+Update part of a rule.
+
+### PUT `/api/rules/:id`
+
+Replace full rule definition.
 
 ### DELETE `/api/rules/:id`
 
-Remove rule.
+Delete rule.
 
 ------
 
@@ -333,19 +323,23 @@ Remove rule.
 
 ### GET `/api/boards/:boardId/clusters`
 
-List clusters.
+List clusters for a board.
 
 ### POST `/api/boards/:boardId/clusters`
 
-Create new cluster (manual or rule‑based).
+Create manual or rule-based cluster.
 
 ### GET `/api/clusters/:id`
 
-Retrieve cluster details + member cards.
+Get cluster detail and members.
+
+### PATCH `/api/clusters/:id`
+
+Update cluster metadata.
 
 ### DELETE `/api/clusters/:id`
 
-Delete cluster.
+Remove cluster.
 
 ------
 
@@ -353,20 +347,23 @@ Delete cluster.
 
 ### POST `/api/files/upload`
 
-Multipart/form‑data upload.
- **Headers:** `Content-Type: multipart/form-data`
- **Body fields:** `file`, `boardId`, `cardId`.
- **Response:** `{ "id": "uuid", "url": "..." }`
+Upload file (multipart).
 
 ### GET `/api/files/:id`
 
-Metadata for file.
+Retrieve file metadata.
+
+### PATCH `/api/files/:id`
+
+Update file metadata.
+
+### PUT `/api/files/:id`
+
+Replace file entry (rarely used).
 
 ### DELETE `/api/files/:id`
 
-Delete attachment.
-
-**Error:** 403 if not owner.
+Delete file.
 
 ------
 
@@ -374,8 +371,11 @@ Delete attachment.
 
 ### GET `/api/boards/:boardId/activities`
 
-List board activity stream.
- **Query:** `?since=timestamp&limit=50`
+List activities by board.
+
+### DELETE `/api/activities/:id`
+
+(Admin) Remove log entry.
 
 ------
 
@@ -383,14 +383,15 @@ List board activity stream.
 
 ### POST `/api/search`
 
-Unified search.
- **Body:**
+Search cards and boards by text query.
 
 ```json
-{ "query": "meeting tomorrow", "filters": {"boardId": "uuid", "type": ["task"]} }
+{ "query": "meeting tomorrow", "filters": {"boardId": "uuid"} }
 ```
 
-**Response:** array of results `{ type, id, title, snippet, score }`
+### GET `/api/search?q=<term>`
+
+Simple query variant.
 
 ------
 
@@ -398,68 +399,121 @@ Unified search.
 
 ### GET `/api/sync?since=<cursor>`
 
-Pull operations since last cursor.
- **Response:**
-
-```json
-{ "cursor": "2025-10-16T10:00:00Z", "operations": [ ... ] }
-```
+Pull operations since timestamp.
 
 ### POST `/api/sync`
 
 Push local operations.
- **Body:** `{ "operations": [ { ... } ] }`
- **Response:** `{ "accepted": [..], "conflicts": [..] }`
+
+### PUT `/api/sync/resolve`
+
+Submit conflict resolution payload.
 
 ------
 
-## 14) Admin Endpoints (Protected)
+## 14) Admin
 
-Requires `role: admin` in token.
+Supports all CRUD operations for global management.
 
-### GET `/api/admin/users`
-
-List all users.
-
-### GET `/api/admin/boards`
-
-List all boards with metadata.
-
-### DELETE `/api/admin/boards/:id`
-
-Force delete a board.
-
-### GET `/api/admin/health`
-
-Server health / uptime / version.
-
-**Error:** 403 for non‑admins.
+- **GET /api/admin/users**
+- **POST /api/admin/users**
+- **PUT /api/admin/users/:id**
+- **DELETE /api/admin/users/:id**
+- **GET /api/admin/boards**
+- **DELETE /api/admin/boards/:id**
 
 ------
 
-## 15) WebSocket / SSE (optional future)
+# StickyBoard — Worker Service Specification (2025-10-20)
 
-Endpoint: `/api/ws`
+## Overview
 
-- Authentication via JWT query param.
-- Channels: `boards:{id}`, `user:{id}`.
-- Events: `card.updated`, `activity.added`, `presence.update`.
+Workers execute background jobs created by the API layer through the `activities` and `worker_jobs` tables.
 
 ------
 
-## 16) Error Code Registry
+## 1) Worker Endpoints (Internal)
 
-| Code             | Description                     | Resolution              |
-| ---------------- | ------------------------------- | ----------------------- |
-| ERR_BAD_REQUEST  | Invalid input.                  | Correct client payload. |
-| ERR_UNAUTHORIZED | Missing or invalid token.       | Login again.            |
-| ERR_FORBIDDEN    | No permission.                  | Check user role.        |
-| ERR_NOT_FOUND    | Entity missing.                 | Verify ID.              |
-| ERR_CONFLICT     | Version mismatch or duplicate.  | Pull latest and retry.  |
-| ERR_VALIDATION   | Field failed schema validation. | Fix input format.       |
-| ERR_RATE_LIMIT   | Too many requests.              | Wait before retry.      |
-| ERR_INTERNAL     | Unhandled server error.         | Contact support.        |
+| Method     | Endpoint               | Description                    |
+| ---------- | ---------------------- | ------------------------------ |
+| **GET**    | `/api/worker/jobs`     | List queued jobs (admin view). |
+| **POST**   | `/api/worker/jobs`     | Manually enqueue a job.        |
+| **GET**    | `/api/worker/jobs/:id` | Inspect job details.           |
+| **PATCH**  | `/api/worker/jobs/:id` | Update job status or priority. |
+| **PUT**    | `/api/worker/jobs/:id` | Replace job payload.           |
+| **DELETE** | `/api/worker/jobs/:id` | Cancel or delete job.          |
 
 ------
 
-### End of REST API Specification
+## 2) Job Management
+
+| Method   | Endpoint                              | Purpose                 |
+| -------- | ------------------------------------- | ----------------------- |
+| **GET**  | `/api/worker/attempts`                | View execution history. |
+| **GET**  | `/api/worker/deadletters`             | View failed jobs.       |
+| **POST** | `/api/worker/deadletters/requeue/:id` | Requeue a dead job.     |
+
+------
+
+## 3) Supported Job Kinds
+
+| Job Kind               | Table Enum | Description                          |
+| ---------------------- | ---------- | ------------------------------------ |
+| RuleExecutor           | `job_kind` | Applies rules based on card changes. |
+| ClusterRebuilder       | `job_kind` | Recomputes card clusters.            |
+| SearchIndexer          | `job_kind` | Updates text search vectors.         |
+| SyncCompactor          | `job_kind` | Deduplicates operations.             |
+| NotificationDispatcher | `job_kind` | Sends alerts/emails.                 |
+| AnalyticsExporter      | `job_kind` | Aggregates metrics.                  |
+| Generic                | `job_kind` | Miscellaneous task handler.          |
+
+------
+
+## 4) Job Lifecycle
+
+- **queued** → waiting to be claimed.
+- **running** → in progress by worker.
+- **succeeded** → completed successfully.
+- **failed** → retried until max_attempts.
+- **dead** → archived to `worker_job_deadletters`.
+
+------
+
+## 5) Example Job Payload
+
+```json
+{
+  "activity_id": "uuid",
+  "board_id": "uuid",
+  "card_id": "uuid",
+  "act_type": "card_updated",
+  "payload": { "before": {...}, "after": {...} }
+}
+```
+
+------
+
+## 6) Worker CRUD Summary
+
+| HTTP   | Endpoint                            | Description                    |
+| ------ | ----------------------------------- | ------------------------------ |
+| GET    | /api/worker/jobs                    | Retrieve job queue.            |
+| POST   | /api/worker/jobs                    | Create job manually.           |
+| GET    | /api/worker/jobs/:id                | Inspect job.                   |
+| PUT    | /api/worker/jobs/:id                | Replace job data.              |
+| PATCH  | /api/worker/jobs/:id                | Modify job status or priority. |
+| DELETE | /api/worker/jobs/:id                | Cancel job.                    |
+| GET    | /api/worker/attempts                | List job attempts.             |
+| GET    | /api/worker/deadletters             | List dead jobs.                |
+| POST   | /api/worker/deadletters/requeue/:id | Requeue job.                   |
+
+------
+
+## 7) Monitoring
+
+Workers expose `/api/admin/workers` for health and throughput stats.
+ Each entry reports worker kind, claimed jobs, success/failure count, and last activity timestamp.
+
+------
+
+**End of StickyBoard API + Worker Documentation (2025-10-20)**
