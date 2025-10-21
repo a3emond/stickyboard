@@ -1,6 +1,6 @@
 # **StickyBoard – Development Log**
 
-
+**Last Updated:** **October 21, 2025**
 
 
 
@@ -237,9 +237,41 @@ The API layer is standardized, worker-ready, and DTO-complete — setting the st
 
 ------
 
+### **October 21, 2025 (Tuesday)**
 
+**Milestone:** Model Refactor and Repository Layer Implementation
 
+- **Refactored all models** to align precisely with the finalized PostgreSQL schema.
+  - Ensured column-level parity with the database, including JSONB fields and ENUM types.
+  - Rebuilt entity classes with `[Table]` and `[Column]` attributes to maintain a consistent mapping layer without using Entity Framework.
+  - Introduced `IEntity` and `IEntityUpdatable` interfaces to enforce structural consistency and enable generic repository constraints.
+  - Removed unnecessary navigation properties to keep models lightweight and persistence-focused, in line with the **raw SQL / DataReader** approach.
+- **Redefined architectural intent of the API**:
+  - The backend is not a generic CRUD service but a **synchronization and orchestration layer** for StickyBoard’s local-first ecosystem.
+  - Reconfirmed that join tables (e.g., `card_tags`, `cluster_members`) are **not domain entities** but logical relationships managed by higher-level services or worker processes.
+  - Clarified that derived tables (clusters, indexes, etc.) are **computed artifacts**, rebuilt by the worker system rather than directly exposed as resources.
+- **Implemented the complete Repository Layer**:
+  - Built a **generic `RepositoryBase<T>`** using `Npgsql` and `async` patterns for all CRUD operations.
+  - Added a **reflection-based `MappingHelper`** to auto-map database columns to model properties via `[Column]` attributes, eliminating manual mapping repetition.
+  - Created specialized repositories for all entities (Users, Boards, Sections, Tabs, Cards, Tags, Links, Clusters, Rules, Activities, Files, Operations, WorkerJobs).
+  - Preserved immutability where applicable (e.g., `Activity`, `Operation` updates disabled).
+  - Ensured clean, database-agnostic transaction handling suitable for future multi-database or offline sync extensions.
+- **Design Decision Summary:**
+  - Abandoned Entity Framework to maintain full **control over SQL performance and query optimization**, aligning with StickyBoard’s **offline-first** and **data-replicable** nature.
+  - Consolidated the model layer under a strict contract system (`IEntity` / `IEntityUpdatable`) to guarantee type safety and uniform CRUD capabilities.
+  - Delegated link and derived data management (e.g., tags, clusters) to higher logic layers, simplifying persistence and improving maintainability.
+  - This structure now supports **deterministic data flow**, essential for CRDT-based sync, background worker tasks, and local delta propagation.
 
+**Result:**
+ All backend persistence layers are now fully operational, consistent with the PostgreSQL schema, and decoupled from ORM dependencies.
+ The API core is now data-complete, worker-compatible, and ready for the **service layer** and **controller integration** phases.
+
+------
+
+**Next Focus:**
+ Service layer orchestration (board logic, card interactions, and sync operations), followed by authentication (JWT + password hashing) and first endpoint implementations.
+
+------
 
 ## **Upcoming Tasks**
 
