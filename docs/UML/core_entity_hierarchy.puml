@@ -1,0 +1,191 @@
+@startuml StickyBoard_Hierarchy
+title StickyBoard – Core Entity Hierarchy (2025)
+
+' ======================================================
+' STYLE
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #ffffff
+skinparam class {
+    BackgroundColor #f9f9f9
+    BorderColor #555555
+    FontSize 12
+}
+skinparam package {
+    BackgroundColor #eaeaea
+    BorderColor #888888
+}
+skinparam arrow {
+    Color #444444
+}
+
+' ======================================================
+' PACKAGES
+package "Auth & Identity" {
+    class User {
+        + id : uuid
+        + email : string
+        + displayName : string
+        + avatarUri : string?
+        + prefs : json
+    }
+
+    class AuthUser {
+        + userId : uuid
+        + passwordHash : string
+        + role : user_role
+    }
+
+    User "1" -- "1" AuthUser : has credentials
+}
+
+package "Boards & Structure" {
+    class Board {
+        + id : uuid
+        + ownerId : uuid
+        + title : string
+        + visibility : board_visibility
+        + theme : json
+    }
+
+    class Section {
+        + id : uuid
+        + boardId : uuid
+        + title : string
+        + position : int
+        + layoutMeta : json
+    }
+
+    class Tab {
+        + id : uuid
+        + boardId : uuid
+        + sectionId : uuid?
+        + scope : enum('board','section')
+        + title : string
+        + tabType : string
+        + layoutConfig : json
+        + position : int
+    }
+
+    class Card {
+        + id : uuid
+        + boardId : uuid
+        + sectionId : uuid?
+        + tabId : uuid?
+        + type : string
+        + title : string
+        + content : json
+        + status : string
+        + priority : int
+        + assigneeId : uuid?
+        + createdBy : uuid
+    }
+
+    Board "1" -- "many" Section : contains >
+    Section "1" -- "many" Tab : contains >
+    Tab "1" -- "many" Card : contains >
+    Board "1" -- "many" Tab : << scope='board' >>
+}
+
+package "Metadata & Links" {
+    class Tag {
+        + id : uuid
+        + name : string
+    }
+
+    class CardTag {
+        + cardId : uuid
+        + tagId : uuid
+    }
+
+    class Link {
+        + id : uuid
+        + fromCard : uuid
+        + toCard : uuid
+        + relType : string
+    }
+
+    Card "many" -- "many" Tag : via CardTag
+    Card "1" -- "many" Link : links >
+}
+
+package "Automation & Clustering" {
+    class Rule {
+        + id : uuid
+        + boardId : uuid
+        + definition : json
+        + enabled : bool
+    }
+
+    class Cluster {
+        + id : uuid
+        + boardId : uuid
+        + clusterType : string
+        + ruleDef : json
+        + visualMeta : json
+    }
+
+    class ClusterMember {
+        + clusterId : uuid
+        + cardId : uuid
+    }
+
+    Board "1" -- "many" Rule : has >
+    Board "1" -- "many" Cluster : has >
+    Cluster "1" -- "many" ClusterMember : groups >
+    ClusterMember "many" -- "1" Card : references >
+}
+
+package "Files & Operations" {
+    class File {
+        + id : uuid
+        + ownerId : uuid
+        + boardId : uuid?
+        + cardId : uuid?
+        + storageKey : string
+        + filename : string
+        + mimeType : string
+        + sizeBytes : int
+        + meta : json
+    }
+
+    class Operation {
+        + id : uuid
+        + deviceId : string
+        + userId : uuid
+        + entity : string
+        + entityId : uuid
+        + opType : string
+        + payload : json
+    }
+
+    Card "1" -- "many" File : has attachments >
+    User "1" -- "many" Operation : performed >
+    Board "1" -- "many" Operation : logged >
+}
+
+package "Activity & Worker" {
+    class Activity {
+        + id : uuid
+        + boardId : uuid
+        + cardId : uuid?
+        + actorId : uuid?
+        + actType : string
+        + payload : json
+    }
+
+    class WorkerJob {
+        + id : uuid
+        + jobKind : string
+        + priority : int
+        + runAt : datetime
+        + status : job_status
+        + payload : json
+    }
+
+    Board "1" -- "many" Activity : logs >
+    WorkerJob "many" ..> Board : may process
+    WorkerJob "many" ..> Rule : may trigger
+    WorkerJob "many" ..> Cluster : may update
+}
+
+@enduml

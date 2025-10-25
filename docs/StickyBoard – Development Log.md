@@ -268,8 +268,80 @@ The API layer is standardized, worker-ready, and DTO-complete — setting the st
 
 ------
 
-**Next Focus:**
- Service layer orchestration (board logic, card interactions, and sync operations), followed by authentication (JWT + password hashing) and first endpoint implementations.
+### **October 22, 2025 (Wednesday)**
+
+**Milestone:** Authentication System Implementation & Infrastructure Stability Fixes
+
+- **Implemented full authentication layer** with JWT support.
+  - Developed `/api/Auth/register` and `/api/Auth/login` endpoints.
+  - Integrated secure password hashing using `BCrypt` and proper JWT token issuance via `JwtTokenService`.
+  - Created corresponding DTOs for registration, login, and response payloads, ensuring consistent request validation and return structure.
+- **Introduced dependency-injected service architecture** for authentication.
+  - Added `IAuthService` interface and `AuthService` implementation with clear separation of concerns.
+  - Injected `UserRepository` and `AuthUserRepository` via constructor-based DI for cleaner lifecycle management.
+  - Defined centralized `JwtOptions` configuration section for environment-bound secret and token claims.
+- **Resolved critical dependency injection (DI) issues** caused by incorrect repository constructors and outdated Npgsql connection handling.
+  - Migrated from direct `NpgsqlConnection` usage to the new `NpgsqlDataSource` pattern introduced in **Npgsql 7.x**.
+  - Updated `RepositoryBase<T>` to use a data-source-backed connection pool with enum-aware mapping.
+  - Registered all PostgreSQL `ENUM` types in `Program.cs` to maintain strict type fidelity across database and C# models.
+- **Refined Swagger and local development setup:**
+  - Added cache-busting for `swagger.json` to prevent stale documentation.
+  - Enabled JWT authorization headers directly in Swagger UI for easy API testing.
+  - Standardized port configuration and isolated development launch profiles (`http` and `https`) for Rider/VS debugging.
+- **Validated authentication workflow end-to-end**:
+  - Confirmed working registration, user persistence, password hashing, and token generation.
+  - Resolved duplicate-key and enum mapping exceptions during initial database writes.
+  - Verified integration with the live PostgreSQL 17 instance inside Docker Compose.
+
+**Result:**
+ Authentication system is now fully operational, secure, and integrated into the StickyBoard API.
+ The backend now uses a modern, dependency-injected architecture with type-safe database access and fully functional Swagger documentation.
+
+------
+
+### **October 24, 2025 (Friday)**
+
+**Milestone 1:** Cancellation Token Integration, Async Pipeline Standardization, and Architecture Stabilization
+
+- Completed the design and planning phase for full **`CancellationToken` propagation** across all asynchronous layers of the StickyBoard API.
+
+- Updated the **repository and service architecture** to adopt a unified async signature convention — every core I/O operation (`CreateAsync`, `UpdateAsync`, `DeleteAsync`, `GetAllAsync`, `GetByIdAsync`) now receives and forwards a `CancellationToken ct`.
+
+- Refactored the **`RepositoryBase<T>`** class to propagate tokens from the controller layer down to database operations.
+
+- Verified **Npgsql** async operations (`OpenConnectionAsync`, `ExecuteReaderAsync`, `ExecuteScalarAsync`, etc.) are token-aware, ensuring proper cooperative cancellation for PostgreSQL queries.
+
+- Ensured **ASP.NET Core’s** built-in request lifetime token (`HttpContext.RequestAborted`) is passed automatically into controllers, cascading through services and repositories without manual interruption handling.
+
+- Standardized the **async pipeline** to guarantee that all pending operations terminate cleanly if a client disconnects mid-request.
+
+- Discussed and documented the new propagation flow in the architecture plan:
+
+  ```
+  Controller → Service → Repository → Database (Npgsql)
+  ```
+
+- Confirmed that cancellation-aware patterns reduce risk of orphaned database sessions, improve scalability, and prepare the API for high concurrency under load.
+
+**Result:**
+ The StickyBoard backend architecture is now **cancellation-ready and fully async-cooperative**.
+ This refactor marks the stabilization of the core pipeline, setting the stage for further service expansion and worker integration built on a consistent, cancellation-safe data layer.
+
+**Milestone 2:** JWT + Refresh Token System, Seamless Session Renewal, and Secure Revocation Workflow
+
+- Implemented a **hybrid authentication model** supporting short-lived access tokens and renewable refresh tokens.
+- Extended the **`AuthService`**, **`AuthController`**, and **`RefreshTokenRepository`** to support:
+  - Refresh token issuance and rotation on login/register.
+  - Token renewal via `/api/auth/refresh`.
+  - Full user logout and token revocation via `/api/auth/logout`.
+- Refactored DTOs (`AuthResponseDto`, `RefreshRequestDto`) to include both tokens and unified user identity data.
+- Updated `Program.cs` to ensure **`JwtOptions`** are properly injected, **token lifetimes are validated**, and **refresh token persistence** is available through dependency injection.
+- Integrated refresh-token persistence with PostgreSQL using hashed identifiers and one-time rotation semantics.
+- Verified that `JwtTokenService` generates consistent tokens respecting expiration, audience, and issuer claims defined in `appsettings.json`.
+- Confirmed that the refresh token system supports both **offline-first native clients** (secure local storage) and **web-based admin sessions** (short-lived JWTs with sliding refresh).
+
+**Result:**
+ The StickyBoard authentication pipeline now provides **secure, persistent sessions with stateless JWT validation** and **revocable, database-tracked refresh tokens**, enabling both web and native clients to maintain long-lived authenticated states without compromising security.
 
 ------
 
