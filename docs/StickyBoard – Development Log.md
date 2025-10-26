@@ -1,6 +1,6 @@
 # **StickyBoard – Development Log**
 
-**Last Updated:** **October 21, 2025**
+**Last Updated:** ****October 24, 2025 (Friday)****
 
 
 
@@ -345,9 +345,44 @@ The API layer is standardized, worker-ready, and DTO-complete — setting the st
 
 ------
 
-## **Upcoming Tasks**
+**Milestone 3:** Collaboration Layer Foundation and Model Integration
 
+- Introduced the **Collaboration Layer** into the StickyBoard API, expanding beyond individual user boards to full multi-user, organization-aware collaboration.
+- Added all new **core models**:
+  - `Organization`, `OrganizationMember`, `UserRelation`, `Message`, and `Invite` (plus planned `Notification` view).
+- Updated existing models (`Board`, `Permission`, `User`, `Tab`, `Card`, `RefreshToken`) to support collaborative ownership, shared visibility, and scoped access.
+- Extended database schema (PostgreSQL 17) accordingly — see `001_schema.sql`.
+- Implemented **new repository classes** for each new model under `Repositories/Organizations`, `Repositories/Messaging`, and `Repositories/Social`.
+- Established **service layer contracts** for upcoming `OrganizationService`, `BoardSharingService`, `FriendService`, `MessageService`, and `InviteService`.
+- Updated dependency injection structure and base repository to ensure cancellation tokens propagate correctly through new entities.
+- Revised documentation and schema diagrams to reflect the multi-tier collaboration system, matching the vision detailed in the architecture overview and README.
 
+**Result:**
+ StickyBoard now includes a fully defined **Collaboration Domain**. The API supports teams, friendships, and messaging within one unified model, setting the groundwork for organization management, invitations, and shared boards.
+
+------
+
+### **October 25, 2025 (Saturday)**
+
+**Milestone:** Collaboration Layer Completion and Functional Expansion
+
+- Completed the **Collaboration Layer** implementation across repositories, services, and controller planning (Organizations, Friends, Messages, Invites).
+- Finalized **board-sharing and membership logic** following the structure described in *1. Files to Add / Update.md*.
+- Verified relational integrity and tested multi-role propagation:
+  - Organization roles automatically map to board roles (Owner → Owner, Admin → Editor, etc.).
+  - User invitations generate both permission entries and in-app messages.
+- Added schema-verified social layer (`user_relations`) and messaging system (`messages`, `invites`) supporting direct, system, and org-invite message types.
+- Prepared foundation for `Notification` projection table or view for future worker/SSE integration.
+- Updated `RepositoryBase` and all derived repositories to enforce consistent async token propagation and exception safety.
+- Reviewed and aligned the architecture plan with the unified **Collaboration + Sync + Auth** flow now documented in `Architecture Overview.md`.
+
+**Result:**
+ The collaboration system is now feature-complete at the data and repository levels.
+ The API is ready for controller implementation and integration testing of organization creation, member management, invites, and friend workflows.
+
+------
+
+## **Timeline**
 
 | **Target Date**         | **Task**              | **Description**                                              |
 | ----------------------- | --------------------- | ------------------------------------------------------------ |
