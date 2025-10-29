@@ -1,6 +1,6 @@
 # **StickyBoard – Development Log**
 
-**Last Updated:** ****October 24, 2025 (Friday)****
+**Last Updated:** ****October 29, 2025****
 
 
 
@@ -380,17 +380,173 @@ The API layer is standardized, worker-ready, and DTO-complete — setting the st
  The collaboration system is now feature-complete at the data and repository levels.
  The API is ready for controller implementation and integration testing of organization creation, member management, invites, and friend workflows.
 
+-----
+
+### **October 25, 2025 (Saturday)**
+
+**Milestone:** Service Layer Foundation and Repository Finalization
+
+- Completed **full repository layer validation** against the updated PostgreSQL schema (`001_schema.sql`).  
+  All repositories, enums, and models now maintain 1:1 consistency with the database structure and enum types.
+
+- Verified correct **Npgsql enum mappings** and finalized connection configuration in `Program.cs`, ensuring type safety between PostgreSQL and C#.
+
+- Reviewed and validated existing service/controller implementations:
+  - **AuthService**, **UserService**, and **InviteService** confirmed production-ready.
+  - Full async and token propagation across all layers.
+  - Correct transactional behavior, secure password handling, and refresh token rotation.
+  - Clean separation between domain logic and repository access.
+
+- Evaluated overall architecture and confirmed that the data layer is **fully complete and stable**, ready for long-term extension.
+
+- Defined next development phase:
+  1. **Repository files** will be removed from the active project to reduce clutter and preserve documentation only.
+  2. Begin implementation of the **service layer expansion** (Boards, Organizations, Messaging).
+  3. Prepare for **iOS client integration** using the validated Auth and User endpoints.
+
+**Result:**  
+StickyBoard’s backend has officially reached the **stable foundation milestone** — a complete, consistent data layer with verified services and controllers.  
+The next phase will focus on core business logic (Boards, Collaboration, and Messaging) and client synchronization preparation.
+
+------
+
+### **October 26, 2025 (Sunday)**
+
+**Milestone:** Collaboration & Social Layer Implementation
+
+- Added the entire **collaboration subsystem** to the StickyBoard backend data model and persistence layer.
+- Updated the database schema (`001_schema.sql`) to introduce new social interaction tables:
+  - `messages` — supports user-to-user and system message delivery.
+  - `invites` — handles board, organization, and friend invitations with token-based tracking.
+  - `user_relations` — manages friendships and follow states with bidirectional relation statuses.
+- Implemented full **repository layer** for these new entities:
+  - `MessageRepository`
+  - `InviteRepository`
+  - `UserRelationRepository`
+- Ensured all repositories follow the existing `RepositoryBase<T>` pattern with cancellation-aware async I/O and consistent column mapping.
+- Introduced **enum mappings** for social and messaging domains:
+  - `MessageType` (direct, invite, system)
+  - `RelationStatus` (pending, accepted, blocked)
+- Verified integration with `Program.cs` enum registration and data source configuration.
+- Began groundwork for corresponding services and controllers, setting up dependency structure for upcoming work.
+
+**Result:**
+ The StickyBoard backend gained its foundation for **collaboration and communication features**, establishing the groundwork for real-time interaction, messaging, and relationship management.
+
+------
+
+### **October 27, 2025 (Monday)**
+
+**Milestone:** Full Service & Controller Layer Implementation — Complete Backend API Coverage
+
+- Implemented the **entire remaining service and controller layers** of the StickyBoard API, completing the core backend architecture.
+
+- Expanded the system from authentication-only endpoints to full CRUD and orchestration coverage across all major domains:
+
+  - **Boards & Permissions** — fully functional with ownership, collaborator roles, and scoped visibility.
+  - **Sections & Tabs** — modular board structure supporting reordering and nested layout metadata.
+  - **Cards & Relations** — implemented cards, tags, and inter-card links with permission validation and search endpoints.
+  - **Organizations & Members** — merged into a unified `OrganizationService` handling both organization lifecycle and member management.
+  - **Rules & Clusters** — established automation and grouping logic with JSON-driven definitions and type-safe enum integration.
+  - **Activities** — introduced full append-only activity logging system, capturing actions at board and card levels.
+
+- Created all corresponding **DTOs** for each domain, maintaining strict separation between persistence models and API contracts.
+
+- Implemented **controllers** for each service with complete REST coverage:
+
+  - BoardsController, SectionsController, TabsController, CardsController, CardRelationsController, PermissionsController, OrganizationsController, RulesController, ClustersController, and ActivitiesController.
+
+- Integrated all services and repositories into **Program.cs dependency injection**, following clean architectural layering:
+
+  ```
+  Controller → Service → Repository → Database (Npgsql)
+  ```
+
+- Validated correct **JWT authorization propagation** and ensured that all write operations perform permission checks (`EnsureCanEditAsync` / `EnsureOwnerAsync`).
+
+- Finalized **ActivityType**, **ClusterType**, and **OrgRole** enum mapping within `Program.cs` to maintain schema-level parity with PostgreSQL.
+
+- Verified that every controller endpoint supports cancellation-aware async calls (`CancellationToken ct`), completing the unified async pipeline.
+
+**Result:**
+ The StickyBoard backend API is now **feature-complete**, exposing all core functionality from authentication through full collaborative board management, automation, and activity tracking.
+ The system adheres to strict layer separation, testable dependency injection, and fully asynchronous database access — ready for full client integration.
+
+------
+
+## October 28, 2025
+
+- Finalized full invite system refactor:
+  - **Database schema:** replaced single `role` column with separate `board_role` and `org_role` (nullable), enforcing XOR between `board_id` and `org_id`.
+  - **Model:** updated `Invite` class with annotated mappings for `board_role` and `org_role`, plus convenience properties (`IsBoardInvite`, `IsOrgInvite`, `IsFriendInvite`).
+  - **DTOs:** split `Role` into `BoardRole` and `OrgRole` fields across `InviteCreateDto`, `InvitePublicDto`, and `InviteListItemDto`.
+  - **Repository:** aligned insert/query logic with new schema (`board_role`, `org_role`).
+  - **Service:** cleaned invite validation and redemption flow (distinct handling for friend, board, and organization invites; removed cross-enum casting).
+  - **Controller:** updated routes to match refactored service and added a public unauthenticated endpoint `GET /api/invites/public/{token}` for landing-page previews.
+
+- Fixed tab permission logic:
+  - Added internal `EnsureCanViewAsync` method to `TabService` to distinguish between read and edit access.
+  - Updated `GetByBoardAsync` and `GetBySectionAsync` to use view-level authorization, allowing users with `viewer` role to see tabs.
+  - Retained edit-only access for create, update, delete, and reorder operations.
+  - No API or repository changes required; adjustment is fully internal to service logic for consistent board access behavior.
+
+- Updated message status system:
+  - Added `MessageStatus` enum (`unread`, `read`, `archived`) in `Models.Enums`.
+  - Replaced all string-based message status handling with strongly typed enum usage across the API.
+  - Updated `MessageRepository` to use `MessageStatus` in insert, update, and unread-count queries.
+  - Added clear comment sections in the repository for maintainability and readability.
+  - Improved query safety and consistency by removing hardcoded string literals.
+
+- Secured activity access:
+  - Added full permission guards to `ActivityService` to enforce board-level visibility on all activity queries.
+  - Integrated `CardRepository` to resolve board context when retrieving activities by card.
+  - Updated `GetByCardAsync` to validate card existence and call `EnsureCanViewAsync` for proper access control.
+  - Ensures consistent authorization behavior across board, section, and card scopes.
+
+- Improved user relation creation logic:
+  - Updated `UserRelationService.CreateAsync` to check for existing active relations before inserting.
+  - Prevents redundant dual inserts when the friendship already exists in both directions.
+  - Keeps repository-level upsert logic intact while ensuring service-level idempotency and cleaner operation flow.
+
+- Implemented File Management and Operation Logging subsystems:
+  - Added `FileService`, `FileRepository`, and `FilesController` for handling board/card file metadata.
+  - Introduced comprehensive `FileDto` structures (`CreateFileDto`, `FileDto`, `FileListItemDto`, `FileDeleteResponseDto`) with full CRUD support.
+  - Enforced permission guards in `FileService` for both view/edit operations and automatic board resolution from card context.
+  - Added `updated_at` field to the database schema and model for accurate modification tracking.
+
+- Added full Operation Logging pipeline:
+  - Created `OperationService`, `OperationRepository`, and `OperationsController` for append-only sync operations.
+  - Defined `CreateOperationDto`, `OperationQueryDto`, `OperationDto`, and `OperationMaintenanceResultDto` for consistent data exchange.
+  - Implemented `AppendAsync`, `QueryAsync`, and `MaintenanceAsync` in service with board-level permission validation and flexible string-based `device_id`.
+  - Standardized `version_prev` and `version_next` as `int?` (PostgreSQL `integer`) across schema, model, and DTOs.
+
+- Updated dependency injection configuration:
+  - Registered `FileRepository` / `FileService` and `OperationRepository` / `OperationService` in DI.
+  - Maintained clean service grouping and consistent enum mappings throughout the API.
+
+------
+
+**October 29, 2025**
+
+- Refactored all API controllers to return **normalized responses** using `ApiResponseDto<T>` and proper **DTO mappings** across every module.
+   All services were updated accordingly to expose DTOs instead of entity models, ensuring full consistency and Swagger compatibility throughout the project.
+
 ------
 
 ## **Timeline**
 
-| **Target Date**         | **Task**              | **Description**                                              |
-| ----------------------- | --------------------- | ------------------------------------------------------------ |
-| **October 20–21, 2025** | Database integration  | Implement connection helper and seed logic using async Npgsql DataReader pattern. |
-| **October 22–23, 2025** | Authentication system | Implement JWT auth (users table, register/login endpoints).  |
-| **October 24–26, 2025** | Core API features     | Develop main modules: boards, notes, clusters, notifications, and sync. |
-| **Following week**      | Frontend integration  | Begin connecting mobile/desktop clients to API endpoints.    |
-| **Later phase**         | Automation refinement | Add umbrella-side daily sync workflow and tag propagation system. |
+| **Target Date**         | **Task**                     | **Description**                                              |
+| ----------------------- | ---------------------------- | ------------------------------------------------------------ |
+| **October 20–21, 2025** | Database integration         | Implement and validate PostgreSQL schema, async Npgsql repositories, and seed logic. |
+| **October 22–23, 2025** | Authentication system        | Complete JWT-based authentication (register, login, refresh, logout) with refresh token rotation. |
+| **October 24–25, 2025** | Data layer finalization      | Verify all repositories, enums, and models against schema. Finalize and document the entire data layer. |
+| **October 26–27, 2025** | Service layer completion     | Implement all remaining core services (Boards, Organizations, Messaging, Permissions). Validate async flow and transactions. |
+| **October 28, 2025**    | Controller implementation    | Create corresponding controllers and DTOs for all core services. Achieve full API coverage for client integration. |
+| **October 29–30, 2025** | Integration testing & polish | Test complete API flow (Auth, Users, Boards, Messaging). Finalize Swagger, validation, and documentation. |
+| **October 31, 2025**    | iOS base version ready       | Deliver a fully functional iOS client connected to the API (Auth + Boards + Cards + Messaging). |
+| **November 1–7, 2025**  | Sync & offline foundation    | Begin implementing offline-first storage, sync queue, and incremental fetch pipeline on iOS. |
+| **Following weeks**     | Collaboration expansion      | Add advanced features: invites, friends, activity tracking, and notifications. |
+| **Later phase**         | Automation & clustering      | Integrate background workers, clustering, and analytics once sync layer is stable. |
 
 
 
@@ -425,4 +581,4 @@ The API layer is standardized, worker-ready, and DTO-complete — setting the st
 
 **Role:** StickyBoard Project Lead
 
-**Last Updated:** **October 20, 2025**
+**Last Updated:** **October 28, 2025**
