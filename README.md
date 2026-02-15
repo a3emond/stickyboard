@@ -1,4 +1,4 @@
-# StickyBoard – Project Overview (2025-10-24)
+# StickyBoard – Project hub
 
 StickyBoard is a **cross-platform collaborative workspace** designed for creativity, productivity, and intelligent organization. It unifies personal notes, project boards, and team collaboration into a single local-first ecosystem with seamless offline and cloud sync.
 
@@ -13,7 +13,6 @@ This repository acts as the **documentation and coordination hub** for the entir
 | [stickyboard-windows](https://github.com/a3emond/stickyboard-windows) | Windows  | Desktop version built in .NET MAUI              |
 
 ------
-# StickyBoard — Project Presentation
 
 ## Overview
 
