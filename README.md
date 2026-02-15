@@ -13,180 +13,239 @@ This repository acts as the **documentation and coordination hub** for the entir
 | [stickyboard-windows](https://github.com/a3emond/stickyboard-windows) | Windows  | Desktop version built in .NET MAUI              |
 
 ------
+# StickyBoard — Project Presentation
 
-## 1. Architecture Overview
+## Overview
 
-### 1.1 Core Principles
+StickyBoard is a large-scale, multi-platform collaborative workspace system designed and developed as a complete end-to-end software ecosystem. The project was conceived to explore and implement modern software engineering practices across mobile development, backend engineering, database architecture, synchronization, and system deployment. Unlike a typical academic assignment, StickyBoard was built as a real-world application with production-style architecture, multi-repository organization, and full infrastructure ownership including backend hosting and deployment.
 
-- **Local-first** — instant response, offline by default, sync when connected.
-- **Composable domain** — boards, sections, cards, and tabs behave uniformly.
-- **Operation-based sync** — every mutation is logged as a reversible operation.
-- **Extensible schema** — new entities can be introduced without breaking existing data.
-- **Collaborative by design** — same structure powers personal and team workflows.
+The system enables users to create workspaces, boards, and structured visual content using cards, sections, and views. It supports collaborative editing, messaging, file attachments, and secure invitation flows. A major design objective is to provide a local-first user experience: each client device maintains a local database and can operate fully offline, synchronizing changes with the server when connectivity is restored. This ensures responsiveness, reliability, and consistency across devices. StickyBoard is implemented as a native multi-platform system, with dedicated applications for iOS (SwiftUI), Android (Kotlin), macOS (SwiftUI), and Windows (.NET MAUI), all sharing a unified backend and synchronization model.
 
-### 1.2 Major Layers
+This project required independent work across the full software lifecycle, including system design, architecture modeling, backend implementation, mobile client development, database schema design, synchronization logic, authentication systems, file storage management, realtime infrastructure, and self-hosted deployment.
 
-1. **Data Storage** – Local database + remote persistence (PostgreSQL).
-2. **Sync Layer** – Operation logs with versioned merges (CRDT-inspired).
-3. **Domain Layer** – Core objects (Board, Section, Card, Cluster, User, etc.).
-4. **Rule Engine** – Local automation and inference.
-5. **Collaboration Layer** – Boards, organizations, and messaging.
-6. **Presentation Layer** – Unified visual canvas and cross-platform UI.
+---
+
+## Project Scope and Technical Scale
+
+StickyBoard is structured as a multi-repository ecosystem, where each platform and subsystem is developed independently but follows a shared architecture and domain model.
+
+### Main Components
+
+| Component          | Technology                        | Responsibility                                               |
+| ------------------ | --------------------------------- | ------------------------------------------------------------ |
+| Backend API        | ASP.NET Core (.NET 9), PostgreSQL | Core domain logic, authentication, sync, collaboration       |
+| iOS Client         | SwiftUI                           | Native mobile interface, local database, sync client         |
+| Android Client     | Kotlin                            | Native mobile interface and sync client                      |
+| Windows Client     | .NET MAUI                         | Cross-platform desktop client                                |
+| macOS Client       | SwiftUI                           | Native desktop client                                        |
+| Database           | PostgreSQL                        | Persistent storage, domain constraints, sync source of truth |
+| Realtime Layer     | Event outbox + Firebase           | Multi-device synchronization and notifications               |
+| File Storage       | Self-hosted CDN + signed URLs     | Secure attachment storage and delivery                       |
+| Background Workers | .NET Services                     | Event processing, notifications, and maintenance tasks       |
+
+Each component was designed and implemented to operate independently while maintaining strict consistency and interoperability.
+
+---
+
+## Architecture and Design Principles
+
+The project follows modern layered architecture and domain-driven design principles, ensuring separation of concerns, maintainability, and scalability.
+
+### Core Architectural Layers
+
+* Presentation Layer
+
+  * Native UI applications on each platform
+  * Platform-specific integration and local persistence
+
+* Service Layer
+
+  * Business logic and domain orchestration
+  * Validation, permissions, and workflow coordination
+
+* Repository Layer
+
+  * Direct database access using parameterized SQL
+  * Custom repository pattern built on Npgsql
+
+* Database Layer
+
+  * PostgreSQL schema with strict constraints and triggers
+  * Versioning, soft deletes, and audit tracking
+
+* Synchronization Layer
+
+  * Event outbox pattern for deterministic realtime sync
+  * Cursor-based incremental update propagation
+
+* Infrastructure Layer
+
+  * Authentication, file storage, background workers, and deployment
+
+This layered structure ensures that each responsibility is isolated, enabling clean architecture and long-term extensibility.
+
+---
+
+## Advanced Backend and Database Engineering
+
+The backend was implemented using ASP.NET Core with a strong focus on architectural correctness and database-level integrity.
+
+### Key Backend Features
+
+* REST API using DTO-based contracts
+* Repository pattern without ORM to maintain full SQL control
+* JWT authentication with refresh token rotation
+* Role-based access control for workspaces and boards
+* Secure invitation system using cryptographic token hashing
+* Soft-delete system preserving audit history
+* Optimistic concurrency control using versioning
+* Background worker queue for asynchronous processing
+
+### Database Architecture
+
+The PostgreSQL database was designed as the authoritative source of truth and enforces many domain rules directly.
+
+Key mechanisms include:
+
+* Foreign key constraints ensuring relational integrity
+* Database triggers maintaining versioning and timestamps
+* Event outbox pattern enabling reliable realtime synchronization
+* Soft deletion preserving historical data
+* Optimized indexing for performance and sync queries
+
+This approach ensures consistency, reliability, and safe multi-device synchronization.
+
+---
+
+## Multi-Platform Native Client Development
+
+StickyBoard clients were developed using native frameworks for each platform to leverage operating system capabilities fully.
+
+### Platform Technologies
+
+| Platform | Technology |
+| -------- | ---------- |
+| iOS      | SwiftUI    |
+| Android  | Kotlin     |
+| macOS    | SwiftUI    |
+| Windows  | .NET MAUI  |
+
+Each client implements:
+
+* Local database storage for offline operation
+* Synchronization engine with conflict detection
+* Secure authentication handling
+* Platform-native UI and interaction models
+
+This demonstrates cross-platform system design while maintaining native performance and integration.
+
+---
+
+## Synchronization and Realtime Architecture
+
+One of the most technically advanced aspects of StickyBoard is its synchronization system.
+
+### Sync Mechanisms
+
+* Event Outbox Pattern
+
+  * Database triggers record all changes into a sync event log
+  * Ensures reliable and ordered propagation of updates
+
+* Cursor-Based Delta Sync
+
+  * Clients fetch only changes since their last sync
+  * Minimizes network usage and improves efficiency
+
+* Offline-First Model
+
+  * Clients operate independently with local databases
+  * Synchronization occurs automatically when connectivity resumes
+
+* Realtime Notifications
+
+  * Background workers propagate events to connected clients
+
+This architecture ensures data consistency across multiple devices while supporting offline usage.
+
+---
+
+## File Storage and Security Architecture
+
+StickyBoard implements secure file handling using a dedicated CDN and signed URL access control.
+
+### File System Features
+
+* Files stored outside the API for performance and scalability
+* Secure access using time-limited signed URLs
+* Cryptographic token validation using HMAC
+* Support for attachment variants such as previews and thumbnails
+* Centralized attachment management service
+
+This design ensures security, scalability, and efficient file delivery.
+
+---
+
+## Deployment, Hosting, and Infrastructure
+
+The StickyBoard backend is fully self-hosted and deployed independently.
+
+### Infrastructure Responsibilities
+
+* Backend deployment on a personal server
+* HTTPS configuration and reverse proxy setup
+* PostgreSQL database installation and maintenance
+* CDN setup and secure file serving
+* Background worker process management
+* Version control and multi-repository coordination
+
+This demonstrates full-stack ownership, including infrastructure and deployment management.
+
+---
+
+## Software Engineering Concepts and Design Patterns Demonstrated
+
+StickyBoard incorporates multiple advanced architectural and design concepts covered in software engineering and design pattern courses.
+
+### Concepts Implemented
+
+* Layered Architecture
+* Repository Pattern
+* Service Layer Pattern
+* Event Outbox Pattern
+* Domain-driven design principles
+* Separation of concerns
+* Optimistic concurrency control
+* Secure token-based authentication
+* Transactional database logic using stored functions
+* Multi-client synchronization architecture
+
+These patterns are commonly used in professional software systems and demonstrate strong architectural understanding.
+
+---
+
+## Educational Value and Learning Outcomes
+
+This project provided hands-on experience with real-world software engineering challenges, including:
+
+* Designing and implementing a complete backend system
+* Developing native applications across multiple platforms
+* Implementing secure authentication systems
+* Designing relational database schemas with integrity constraints
+* Implementing synchronization and realtime systems
+* Managing file storage securely
+* Deploying and hosting production-style infrastructure
+* Applying software architecture and design pattern principles
+
+StickyBoard represents a comprehensive application of both mobile development and software architecture concepts in a unified, real-world system.
+
+---
+
+## Conclusion
+
+StickyBoard is a large-scale software engineering project that integrates mobile development, backend architecture, database engineering, synchronization systems, and infrastructure management into a single cohesive system. It demonstrates the ability to design, implement, deploy, and maintain a complex multi-platform application using modern software engineering practices and architectural principles.
 
 ------
-
-## 2. Collaboration Model
-
-### 2.1 Structure
-
-StickyBoard introduces a **multi-tier collaboration system** combining organizations, teams, and personal spaces:
-
-```
-User
- ├── Friends (Relations)
- ├── Messages (Invites, Notifications)
- ├── Organizations
- │    ├── Members (OrgRole)
- │    └── Boards (Projects)
- │          ├── Shared Board (Public project)
- │          └── Personal Boards (Private per member)
- ├── Boards (Personal)
- │    └── Permissions (BoardRole)
- └── Invites (External email entrypoints)
-```
-
-### 2.2 Roles
-
-**Organization Roles**
-
-| Role      | Access                          |
-| --------- | ------------------------------- |
-| Owner     | Full control, cannot be removed |
-| Admin     | Manage org and boards           |
-| Moderator | Manage members and permissions  |
-| Member    | Standard participant            |
-| Guest     | Read-only                       |
-
-**Board Roles**
-
-| Role      | Access                       |
-| --------- | ---------------------------- |
-| Owner     | Full control                 |
-| Editor    | CRUD permissions, can invite |
-| Commenter | Comment and view             |
-| Viewer    | Read-only                    |
-
-### 2.3 Boards as Projects
-
-Boards can act as **project containers** with a shared parent board and personal subboards per user. Owners have read-only access to member subboards, while admins can view all. This structure supports both individual productivity and coordinated teamwork.
-
-### 2.4 Invitations and Messaging
-
-- **Internal Invites** – for existing users; instantly creates permissions.
-- **External Invites** – generates a secure token + email with download links.
-- **Messaging System** – handles invites, direct messages, and system notifications.
-- **Friend Relations** – allow user discovery and restricted invites.
-
-### 2.5 Offline and Sync
-
-All collaboration actions (invites, joins, permission changes) produce `operations` and `activities`, ensuring deterministic sync and offline resilience.
-
-------
-
-## 3. Data Model Summary
-
-| Entity                 | Description                                              |
-| ---------------------- | -------------------------------------------------------- |
-| **User**               | Identity, profile, preferences                           |
-| **Organization**       | Team workspace container                                 |
-| **OrganizationMember** | Relation between User and Organization (role, joined_at) |
-| **Board**              | Workspace/project; may belong to org or user             |
-| **Permission**         | Board-level collaborator roles                           |
-| **Section**            | Visual grouping of cards within board                    |
-| **Tab**                | Contextual sub-area of board or section                  |
-| **Card**               | Atomic note/task/event element                           |
-| **Cluster**            | Logical grouping (manual or rule-based)                  |
-| **Activity**           | Log of domain actions                                    |
-| **Rule**               | Declarative automation definition                        |
-| **Message**            | Communication item (invite, DM, system)                  |
-| **Invite**             | External invitation link                                 |
-| **UserRelation**       | Friend or blocked connection between users               |
-| **WorkerJob**          | Asynchronous task in background queue                    |
-
-------
-
-## 4. Collaboration Features Overview
-
-- **Organizations** – Manage multi-user workspaces with role hierarchy.
-- **Board Sharing** – Invite others with roles; integrate into org access.
-- **Personal Boards** – Each user can have private subboards under shared projects.
-- **Friend System** – Basic social layer for invitations and presence.
-- **Messaging** – Central hub for all communication, notifications, and invites.
-- **External Invites** – Email-based onboarding for non-members.
-- **Audit Trail** – Every collaboration action logged as an `Activity`.
-- **Offline Support** – Full local caching and deferred operation queue.
-
-------
-
-## 5. Sync Lifecycle
-
-1. Local action → create operation entry.
-2. Operation persisted to local DB.
-3. Optional rule triggers → enqueue background jobs.
-4. Background sync pushes operations.
-5. API merges → emits events for subscribed clients.
-6. UI layer refreshes via observable model streams.
-
-Undo/redo handled locally through inverse operations.
-
-------
-
-## 6. Intelligence & Rule Layer
-
-Local subsystems enhance notes and boards with automation:
-
-| Subsystem         | Input              | Output                           |
-| ----------------- | ------------------ | -------------------------------- |
-| Rule Engine       | Card/Board updates | Triggers, suggestions, auto-tags |
-| Ink Parser        | Drawn content      | Vector + recognized text         |
-| Similarity Engine | Text metadata      | Related cards and clusters       |
-| Index Builder     | Text + tags        | Full-text search index           |
-| Cluster Manager   | Rule + embeddings  | Grouped card sets                |
-
-------
-
-## 7. Product Vision
-
-StickyBoard aims to become the **most flexible hybrid between a visual note system and a team collaboration platform**:
-
-- Personal creativity meets organizational coordination.
-- Every device stays productive offline.
-- Transparent sync, open JSON data, and exportable archives.
-- Modular backend with PostgreSQL + Worker Jobs.
-- Multi-platform clients sharing one universal model.
-
-### Roadmap Phases
-
-| Phase | Goal                 | Deliverables                                    |
-| ----- | -------------------- | ----------------------------------------------- |
-| 1     | Personal MVP         | Board CRUD, offline DB, operation log           |
-| 2     | Intelligence         | Rules, handwriting recognition, search clusters |
-| 3     | Collaboration        | Boards, organizations, invites, messages        |
-| 4     | Multi-Board Projects | Parent boards, personal subboards               |
-| 5     | Ecosystem            | Plugins, integrations, analytics workers        |
-
-------
-
-## 8. Governance & Data Portability
-
-- Open JSON schema with versioning.
-- Portable `.stickyboard` archives (data + assets).
-- Optional end-to-end encryption for private boards.
-- Auditable operation history via `operations` + `activities`.
-- Export adapters for Markdown, CSV, and iCalendar.
-
-------
-
 ## License
 
 All rights reserved — © Alexandre Emond, 2025. Unauthorized reproduction or redistribution of this project’s source code, in whole or in part, is strictly prohibited without express written permission.
